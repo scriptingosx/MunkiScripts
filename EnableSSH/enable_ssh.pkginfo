@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>_metadata</key>
+	<dict>
+		<key>created_by</key>
+		<string>armin</string>
+		<key>creation_date</key>
+		<date>2014-12-16T21:25:33Z</date>
+		<key>munki_version</key>
+		<string>2.0.1.2253</string>
+		<key>os_version</key>
+		<string>10.10.1</string>
+	</dict>
+	<key>autoremove</key>
+	<false/>
+	<key>catalogs</key>
+	<array>
+		<string>testing</string>
+	</array>
+	<key>installcheck_script</key>
+	<string>#!/bin/sh
+
+PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/munki export PATH
+
+# this will run as a munki install_check script
+# exit status of 0 means install needs to run
+# exit status not 0 means no installation necessary
+
+ssh_group="com.apple.access_ssh"
+
+# Is SSH enabled
+if [[ $(systemsetup -getremotelogin) = 'Remote Login: Off' ]]; then
+	echo "Remote login is off!"
+	exit 0
+fi
+
+# Does a group named "com.apple.access_ssh" exist?
+if [[ $(dscl /Local/Default list /Groups | grep "${ssh_group}-disabled" | wc -l) -eq 1 ]]; then
+	echo "access set to 'All Users'"
+	exit 0
+elif [[ $(dscl /Local/Default list /Groups | grep "$ssh_group" | wc -l) -eq 0 ]]; then
+	echo "no group '$ssh_group'"
+	exit 0
+fi
+
+# does the group contain the admin group?
+admin_uuid=$(dsmemberutil getuuid -G admin)
+if [[ $(dscl /Local/Default read Groups/com.apple.access_ssh NestedGroups | grep "$admin_uuid" | wc -l) -eq 0 ]]; then
+	echo "admin group not nested in $ssh_group!"
+	exit 0
+fi
+
+echo "everything seems as it should be, no install needed"
+exit 1</string>
+	<key>minimum_os_version</key>
+	<string>10.9.0</string>
+	<key>postinstall_script</key>
+	<string>#!/bin/sh
+
+PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/munki export PATH
+
+# this will run as a munki install_check script
+# exit status of 0 means install needs to run
+# exit status not 0 means no installation necessary
+
+ssh_group="com.apple.access_ssh"
+
+# enable ssh
+if [[ $(systemsetup -getremotelogin) = 'Remote Login: Off' ]]; then
+	echo "turning on Remote Login/SSH"
+	systemsetup -setremotelogin On
+fi
+
+# Does a group named "com.apple.access_ssh" exist?
+if [[ $(dscl /Local/Default list /Groups | grep "${ssh_group}-disabled" | wc -l) -eq 1 ]]; then
+	#rename this group
+	echo "renaming group '${ssh_group}-disabled'"
+	dscl localhost change /Local/Default/Groups/${ssh_group}-disabled RecordName ${ssh_group}-disabled $ssh_group
+elif [[ $(dscl /Local/Default list /Groups | grep "$ssh_group" | wc -l) -eq 0 ]]; then
+	# create group
+	echo "creating group $ssh_group"
+    dseditgroup -o create -n "/Local/Default" -r "Remote Login Group" -T group $ssh_group
+fi
+
+# does the group contain the admin group?
+admin_uuid=$(dsmemberutil getuuid -G admin)
+if [[ $(dscl /Local/Default read Groups/$ssh_group NestedGroups | grep "$admin_uuid" | wc -l) -eq 0 ]]; then
+	echo "adding admin group to $ssh_group"
+	dseditgroup -o edit -n "/Local/Default" -a admin -t group $ssh_group
+fi
+
+exit 0</string>
+	<key>uninstall_method</key>
+	<string>uninstall_script</string>
+	<key>uninstall_script</key>
+	<string>#!/bin/sh
+
+PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/munki export PATH
+
+# this will run as a munki install_check script
+# exit status of 0 means install needs to run
+# exit status not 0 means no installation necessary
+
+ssh_group="com.apple.access_ssh"
+
+# disable ssh
+if [[ $(systemsetup -getremotelogin) = 'Remote Login: On' ]]; then
+	echo "turning off Remote Login/SSH"
+	systemsetup -f -setremotelogin off
+fi
+
+# does the group contain the admin group?
+admin_uuid=$(dsmemberutil getuuid -G admin)
+if [[ $(dscl /Local/Default read Groups/$ssh_group NestedGroups | grep "$admin_uuid" | wc -l) -eq 1 ]]; then
+	echo "removing admin group from $ssh_group"
+	dseditgroup -o edit -n "/Local/Default" -d admin -t group $ssh_group
+fi
+
+exit 0</string>
+	<key>version</key>
+	<string>1.0.0.0.0</string>
+	<key>description</key>
+	<string>Enables Remote Login (SSH) for all users in the admin group.</string>
+	<key>name</key>
+	<string>EnableSSH</string>
+	<key>display_name</key>
+	<string>Enable SSH</string>
+	<key>installer_type</key>
+	<string>nopkg</string>
+	<key>unattended_install</key>
+	<true/>
+	<key>uninstall_method</key>
+	<string>uninstall_script</string>
+	<key>uninstallable</key>
+    <true/>
+</dict>
+</plist>
+
