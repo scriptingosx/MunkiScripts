@@ -22,7 +22,7 @@ if [[ $(dscl /Local/Default list /Groups | grep "${ssh_group}-disabled" | wc -l)
 elif [[ $(dscl /Local/Default list /Groups | grep "$ssh_group" | wc -l) -eq 0 ]]; then
 	# create group
 	echo "creating group $ssh_group"
-    dseditgroup -o create -n "/Local/Default" -r "Remote Login Group" -T group $ssh_group
+    dseditgroup -o create -n "/Local/Default" -i 399 -g "ABCDEFAB-CDEF-ABCD-EFAB-CDEF0000018F" -r "SSH Service ACL" -T group $ssh_group
 fi
 
 # does the group contain the admin group?
